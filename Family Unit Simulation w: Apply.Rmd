@@ -1,0 +1,365 @@
+---
+title: "Family Unit Simulation w/ Apply"
+author: "Bryan Kim"
+date: "7/1/2020"
+output: pdf_document
+---
+
+```{r}
+##### Installing Packages ####
+library(dplyr)
+
+### Functions used ###
+# Finds the missing integer in vector of integers
+missing_int=function(vec) {
+    n = length(vec) 
+    total = (n + 1)*(n + 2)/2
+    sum_of_vec = sum(vec) 
+    return(total - sum_of_vec)
+}
+## Draws a random number from a uniform distribution (0,delta)
+rand_time=function(){
+  return(runif(1,0,delta))
+}
+## Randomly infects one person from the n family members
+rand_inf=function(){
+  return(sample.int(7,1))
+}
+
+## S->E Transition time random draw
+susc_exp=function(curr_time){
+  return(curr_time+rexp(1,(1/h*R0f*gamma_I)))
+}
+## E->I Transition time random draw
+exp_infect=function(curr_time){
+  return(curr_time+rexp(1,(1/gamma_E)))
+}
+## I->R Transition time random draw
+infect_recov=function(curr_time){
+  return(curr_time+rexp(1,(1/gamma_I)))
+}
+
+##### Setting Parameters, Functions, and initial conditions #####
+R0f=5;gamma_E=1/5;gamma_I=1/7;n=7;delta=1;p=0.7;h=0.5
+
+# Random time drawn and random infected person drawn
+t=rand_time()
+infect=rand_inf()
+
+# Initialize State and Time Vectors
+State=rep("S",n)
+Time=rep(0,n)
+
+################################################################################
+
+
+#### Next Action Time ####
+action_time=function() {
+  temp_action_Time=Time
+  assign('temp_action_Time',temp_action_Time,envir = .GlobalEnv)
+  
+  # print(Time) 
+  
+  # if no one is infected (E and below), Susceptible members have infinite (very large) values. If there is an E, only update   their time value
+    if (!("I" %in% State)) {
+   
+      # print("I is not in State")
+   
+       ## If only S and E in State
+       if ((("S" %in% unique(State)) & ("E" %in% unique(State)) & (length(unique(State))==2))) {
+        # Assigning big values for S individuals
+        s=which(State=="S")
+        temp_action_Time[s]=10000000
+        e=which(State=="E")
+            for (e in e) {
+                temp_action_Time[e]=exp_infect(temp_action_Time[e])
+            }
+            #sapply(temp_action_Time[e],function(x) x+rexp(1,(1/gamma_E))) 
+    
+  #  print(State)
+  #  print(temp_action_Time)
+    
+      assign('temp_action_Time',temp_action_Time,envir = .GlobalEnv)
+      return(min(temp_action_Time))
+   }
+  ## If only R and S in State vector
+   else if ((("R" %in% unique(State)) & ("S" %in% unique(State)) & (length(unique(State))==2))) {
+     
+       #print("Only R and S in State")
+         
+        s=which(State=="S")
+        for (s in s) {
+            temp_action_Time[s]=susc_exp(temp_action_Time[s])
+          }    
+        r=which(State=="R")
+        temp_action_Time[r]=1000000
+    
+  #  print(State)
+  #  print(temp_action_Time)
+    
+      assign('temp_action_Time',temp_action_Time,envir = .GlobalEnv)
+      return(min(temp_action_Time))
+     }
+   ## If only R and E in State vector
+   else if ((("R" %in% unique(State)) & ("E" %in% unique(State)) & (length(unique(State))==2))) {
+     
+   #print("Only R and E in State")
+     
+        e=which(State=="E")
+        for (e in e) {
+            temp_action_Time[e]=exp_infect(temp_action_Time[e])
+          }    
+        r=which(State=="R")
+        temp_action_Time[r]=1000000
+        
+        #print(State)
+        #print(temp_action_Time)
+        
+        assign('temp_action_Time',temp_action_Time,envir = .GlobalEnv)
+        return(min(temp_action_Time))
+   }
+      
+  else {
+    # Everything but I
+    
+    #print("Stuff")
+    
+      # Assigning big values for S individuals
+      s=which(State=="S")
+      for (s in s) {
+          temp_action_Time[s]=susc_exp(temp_action_Time[s])
+        }      
+      e=which(State=="E")
+      for (e in e) {
+          temp_action_Time[e]=exp_infect(temp_action_Time[e])
+      }
+        r=which(State=="R")
+        temp_action_Time[r]=1000000
+      
+   #   print(State)
+   #   print(temp_action_Time)
+      
+      assign('temp_action_Time',temp_action_Time,envir = .GlobalEnv)
+      return(min(temp_action_Time))
+
+}
+    }
+  
+  else { #(("S" %in% State) | ("E" %in% State) | ("I" %in% State)) 
+    
+  #  print("I IS in State")
+    
+    # Updating Infect_Duration
+    i=which(State=="I")
+    Infect_Duration[i]=Infect_Duration[i]+temp_action_Time[i]
+    assign('Infect_Duration',Infect_Duration,envir = .GlobalEnv)
+    
+  #  print("printing Infect_Duration")
+    
+   # print(Infect_Duration)
+    
+    # Modifying S state individuals
+      s=which(State=="S")
+      for (s in s) {
+        temp_action_Time[s]=susc_exp(temp_action_Time[s])
+      }
+      assign('temp_action_Time',temp_action_Time,envir = .GlobalEnv)
+    # Modifying E state individuals
+      e=which(State=="E")
+      for (e in e) {
+        temp_action_Time[e]=exp_infect(temp_action_Time[e])
+      }
+      assign('temp_action_Time',temp_action_Time,envir = .GlobalEnv)
+    # Modifying I state individuals
+      i=which(State=="I")
+      for (i in i) {
+        temp_action_Time[i]=infect_recov(temp_action_Time[i])
+      }
+      # Should we make the R people's action time infinite too?
+      r=which(State=="R")
+      for (r in r) {
+        temp_action_Time[r]=1000000
+      }
+      assign('temp_action_Time',temp_action_Time,envir = .GlobalEnv)
+      
+      #print(State)
+    #print(temp_action_Time)
+      
+  return(min(temp_action_Time))
+  }
+  
+}
+
+################################################################################
+
+#### Next Test Time ####
+test_time=function() {
+  
+  #print(delta)
+  
+  temp_test_Time=delta
+  assign('temp_test_Time',temp_test_Time,envir = .GlobalEnv)
+  return(temp_test_Time)
+}
+
+################################################################################
+
+##### Algorithm #####
+algo=function(t,infect,R0f,gamma_E,gamma_I,n,delta,p,h) {
+  # First iteration process
+  State[infect]="E"
+  Time=rep(t,n)
+  assign('State',State,envir = .GlobalEnv)
+  assign('Time',Time,envir = .GlobalEnv)
+  
+ # print(State)
+ # print(Time)
+ # print("CHECK")
+  
+  # index to see how many iterations it takes
+  i=0
+  # index to see how many people have been tested
+  c=0
+  
+  ### First checks if R is the only element in State vector ###
+  while (!(("R" %in% unique(State)) & (length(unique(State))==1))) {
+      i=i+1
+      
+     # print("CHECKWHILE")
+      
+      #### if we do not stop the algo:
+      ### run action_time & test_time
+      ## if action_time < test_time: then update the value of the smallest temp_Time index to simulate disease progression. 
+      if (isTRUE(action_time()<test_time())) {
+        
+       # print("ACTION<TEST")
+        
+        # Updating Time vector
+        Time[1:length(Time)]=min(temp_action_Time)
+        assign('Time',Time,envir = .GlobalEnv)
+        
+       # print("ACTION")
+        
+        # Updating one individual in the State vector depending on smallest time.
+        
+        #print(State)
+        
+        if (State[which(temp_action_Time==min(temp_action_Time))]=="S") {
+          State[which(temp_action_Time==min(temp_action_Time))]="E"
+          assign('State',State,envir = .GlobalEnv)
+        #  print("S to E")
+        }
+        else if (State[which(temp_action_Time==min(temp_action_Time))]=="E") {
+          State[which(temp_action_Time==min(temp_action_Time))]="I"
+          assign('State',State,envir = .GlobalEnv)
+        #  print("E to I")
+        }
+        else { #(State[which(temp_action_Time==min(temp_action_Time))]=="I" 
+          State[which(temp_action_Time==min(temp_action_Time))]="R"
+          assign('State',State,envir = .GlobalEnv)
+        #  print("I to R")
+        }
+      }
+      ### else test_time < action_time ###
+      else  {
+        c=c+1
+      #  print("TEST<ACTION")
+        
+        # Here we test an infected person so commence end process calculations
+        if (State[delta]=="I") {
+          print("Tested an infected person")
+            # go to end process calculations
+            break 
+          
+        }
+        # If we do not test an infected person
+        else  {
+          
+       #   print("Did not Test an Infected person")
+          
+          # Updating Time vector
+          Time[1:length(Time)]=temp_test_Time
+          assign('Time',Time,envir = .GlobalEnv)
+          # Updating State vector
+        }
+        # cycle through which person to test
+        if (delta==n) {
+          delta=1
+          assign('delta',delta,envir = .GlobalEnv)
+          
+          #print("CHECK1")
+        }
+        else {
+          delta=delta+1
+          assign('delta',delta,envir = .GlobalEnv)
+          
+          #print("CHECK2")
+        }
+      }
+    #  print(State)
+    }
+    assign('State',State,envir = .GlobalEnv)
+    assign('Time',Time,envir = .GlobalEnv)
+    assign('delta',delta,envir = .GlobalEnv)
+  
+    #### End Process Calculations ####
+    
+    # What is delta?
+    print(paste("Delta =",delta))
+    
+  #print("DO END PROCESS CALCULATIONS")
+  #print(Time)  
+  print(State)
+    
+  print(paste("Number of iterations =",i))
+  #return(i)
+  print(paste(c,"people were tested"))
+      
+  ## Number of members that are Exposed or higher ##
+  print(paste("Number of individuals Exposed or higher =",sum(("E"==State)|("I"==State)|("R"==State))))
+  ## Duration each person has been infected
+  assign('Infect_Duration',Infect_Duration,envir = .GlobalEnv)
+  print("Duration of time each individual is infected:")
+  print(Infect_Duration)
+
+  print(" ")
+}
+
+```
+
+```{r}
+######### Run Simulation Once #########
+R0f=5;gamma_E=1/5;gamma_I=1/7;n=7;delta=1;p=0.7;h=0.5
+t=rand_time()
+infect=rand_inf()
+# Initialize State and Time Vectors
+State=rep("S",n)
+Time=rep(0,n)
+Infect_Duration=rep(0,n)
+# Run algorithm
+algo(t,infect,R0f,gamma_E,gamma_I,n,delta,p,h)
+```
+
+```{r}
+######### Run Simulation n times #########
+n=60
+test=vector(mode = "list", length = n)
+for (i in 1:n) {
+print(paste("Simulation",i))
+R0f=5;gamma_E=1/5;gamma_I=1/7;n=7;delta=1;p=0.7;h=0.5
+t=rand_time()
+infect=rand_inf()
+# Initialize State and Time Vectors
+State=rep("S",n)
+Time=rep(0,n)
+Infect_Duration=rep(0,n)
+# Run algorithm
+algo(t,infect,R0f,gamma_E,gamma_I,n,delta,p,h)
+}
+
+# Seems like the mean number of iterations till program ends is 22. 
+
+#### System.time result ~= 0.1 seconds ####
+## Could try sapply for next draft.
+```
+
